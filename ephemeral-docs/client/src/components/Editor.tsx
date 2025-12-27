@@ -1,14 +1,78 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, Extension } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Collaboration from '@tiptap/extension-collaboration';
 import CollaborationCursor from '@tiptap/extension-collaboration-cursor';
+import Placeholder from '@tiptap/extension-placeholder';
+import Underline from '@tiptap/extension-underline';
+import TaskList from '@tiptap/extension-task-list';
+import TaskItem from '@tiptap/extension-task-item';
+import Link from '@tiptap/extension-link';
+import TextAlign from '@tiptap/extension-text-align';
+import Highlight from '@tiptap/extension-highlight';
+import TextStyle from '@tiptap/extension-text-style';
+import FontFamily from '@tiptap/extension-font-family';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { joinDocument } from '../api';
 
 const COLORS = ['#958DF1', '#F98181', '#FBBC88', '#FAF594', '#70CFF8', '#94FADB', '#B9F18D'];
+
+// Custom Font Size Extension
+declare module '@tiptap/core' {
+    interface Commands<ReturnType> {
+        fontSize: {
+            setFontSize: (size: string) => ReturnType;
+            unsetFontSize: () => ReturnType;
+        };
+    }
+}
+
+const FontSize = Extension.create({
+    name: 'fontSize',
+    addOptions() {
+        return {
+            types: ['textStyle'],
+        };
+    },
+    addGlobalAttributes() {
+        return [
+            {
+                types: this.options.types,
+                attributes: {
+                    fontSize: {
+                        default: null,
+                        parseHTML: (element) => element.style.fontSize?.replace('px', ''),
+                        renderHTML: (attributes) => {
+                            if (!attributes.fontSize) {
+                                return {};
+                            }
+                            return {
+                                style: `font-size: ${attributes.fontSize}px`,
+                            };
+                        },
+                    },
+                },
+            },
+        ];
+    },
+    addCommands() {
+        return {
+            setFontSize: (fontSize) => ({ chain }) => {
+                return chain()
+                    .setMark('textStyle', { fontSize })
+                    .run();
+            },
+            unsetFontSize: () => ({ chain }) => {
+                return chain()
+                    .setMark('textStyle', { fontSize: null })
+                    .removeEmptyTextStyle()
+                    .run();
+            },
+        };
+    },
+});
 
 interface TiptapEditorProps {
     provider: WebsocketProvider;
@@ -32,10 +96,28 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({ provider, documentId, fileN
                     color: COLORS[Math.floor(Math.random() * COLORS.length)],
                 },
             }),
+            Placeholder.configure({
+                placeholder: 'Write something amazing...',
+            }),
+            Underline,
+            TaskList,
+            TaskItem.configure({
+                nested: true,
+            }),
+            Link.configure({
+                openOnClick: false,
+            }),
+            TextAlign.configure({
+                types: ['heading', 'paragraph'],
+            }),
+            Highlight,
+            TextStyle,
+            FontFamily,
+            FontSize,
         ],
         editorProps: {
             attributes: {
-                class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none h-full p-4',
+                class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none h-full p-8 bg-white shadow-lg min-h-[800px]',
             },
         },
     });
@@ -67,45 +149,101 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({ provider, documentId, fileN
         URL.revokeObjectURL(url);
     };
 
+    const setLink = () => {
+        if (!editor) return;
+        const previousUrl = editor.getAttributes('link').href;
+        const url = window.prompt('URL', previousUrl);
+        if (url === null) return;
+        if (url === '') {
+            editor.chain().focus().extendMarkRange('link').unsetLink().run();
+            return;
+        }
+        editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+    };
+
     if (!editor) {
         return <div className="flex justify-center items-center h-screen">Loading editor...</div>;
     }
 
     return (
-        <div className="flex flex-col h-screen bg-gray-50">
+        <div className="flex flex-col h-screen bg-gray-100">
             {/* Toolbar */}
-            <div className="bg-white border-b px-4 py-2 flex space-x-2 justify-between items-center">
-                {/* Left side: Formatting */}
-                <div className="flex space-x-2">
-                    <button
-                        onClick={() => editor.chain().focus().toggleBold().run()}
-                        className={`px-3 py-1 rounded ${editor.isActive('bold') ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
+            <div className="bg-white border-b border-gray-200 px-4 py-2 shadow-sm z-20 flex flex-wrap gap-2 sticky top-0">
+                {/* 1. Typography: Font Family & Size */}
+                <div className="flex items-center space-x-1 border-r border-gray-200 pr-2 mr-1">
+                    <select
+                        className="border border-gray-200 rounded text-sm p-1 w-24"
+                        onChange={(e) => editor.chain().focus().setFontFamily(e.target.value).run()}
+                        value={editor.getAttributes('textStyle').fontFamily || ''}
                     >
-                        Bold
-                    </button>
-                    <button
-                        onClick={() => editor.chain().focus().toggleItalic().run()}
-                        className={`px-3 py-1 rounded ${editor.isActive('italic') ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
+                        <option value="">Default</option>
+                        <option value="Inter">Inter</option>
+                        <option value="serif">Serif</option>
+                        <option value="monospace">Mono</option>
+                        <option value="Comic Sans MS, Comic Sans">Comic</option>
+                    </select>
+                    <select
+                        className="border border-gray-200 rounded text-sm p-1 w-16"
+                        onChange={(e) => editor.chain().focus().setFontSize(e.target.value).run()}
+                        value={editor.getAttributes('textStyle').fontSize || ''}
                     >
-                        Italic
-                    </button>
-                    <button
-                        onClick={() => editor.chain().focus().toggleStrike().run()}
-                        className={`px-3 py-1 rounded ${editor.isActive('strike') ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
-                    >
-                        Strike
-                    </button>
+                        <option value="">Size</option>
+                        <option value="12">12</option>
+                        <option value="14">14</option>
+                        <option value="16">16</option>
+                        <option value="20">20</option>
+                        <option value="24">24</option>
+                        <option value="32">32</option>
+                    </select>
                 </div>
 
-                {/* Right side: Export */}
-                <div className="flex space-x-2">
-                    <button onClick={() => handleExport('txt')} className="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200 text-sm">Export TXT</button>
-                    <button onClick={() => handleExport('html')} className="px-3 py-1 bg-gray-100 rounded hover:bg-gray-200 text-sm">Export HTML</button>
+                {/* 2. Text Style */}
+                <div className="flex items-center space-x-1 border-r border-gray-200 pr-2 mr-1">
+                    <button onClick={() => editor.chain().focus().toggleBold().run()} className={`p-1.5 rounded ${editor.isActive('bold') ? 'bg-gray-200 text-black' : 'text-gray-600 hover:bg-gray-100'}`} title="Bold"><strong>B</strong></button>
+                    <button onClick={() => editor.chain().focus().toggleItalic().run()} className={`p-1.5 rounded ${editor.isActive('italic') ? 'bg-gray-200 text-black' : 'text-gray-600 hover:bg-gray-100'}`} title="Italic"><em>I</em></button>
+                    <button onClick={() => editor.chain().focus().toggleUnderline().run()} className={`p-1.5 rounded ${editor.isActive('underline') ? 'bg-gray-200 text-black' : 'text-gray-600 hover:bg-gray-100'}`} title="Underline"><u>U</u></button>
+                    <button onClick={() => editor.chain().focus().toggleStrike().run()} className={`p-1.5 rounded ${editor.isActive('strike') ? 'bg-gray-200 text-black' : 'text-gray-600 hover:bg-gray-100'}`} title="Strike"><del>S</del></button>
+                    <button onClick={() => editor.chain().focus().toggleHighlight().run()} className={`p-1.5 rounded ${editor.isActive('highlight') ? 'bg-yellow-200 text-black' : 'text-gray-600 hover:bg-gray-100'}`} title="Highlight">H</button>
+                </div>
+
+                {/* 3. Headings & Logic */}
+                <div className="flex items-center space-x-1 border-r border-gray-200 pr-2 mr-1">
+                    <button onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} className={`p-1.5 rounded text-sm font-bold ${editor.isActive('heading', { level: 1 }) ? 'bg-gray-200 text-black' : 'text-gray-600 hover:bg-gray-100'}`}>H1</button>
+                    <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={`p-1.5 rounded text-sm font-bold ${editor.isActive('heading', { level: 2 }) ? 'bg-gray-200 text-black' : 'text-gray-600 hover:bg-gray-100'}`}>H2</button>
+                    <button onClick={() => editor.chain().focus().setParagraph().run()} className={`p-1.5 rounded text-sm ${editor.isActive('paragraph') ? 'bg-gray-200 text-black' : 'text-gray-600 hover:bg-gray-100'}`}>P</button>
+                </div>
+
+                {/* 4. Alignment */}
+                <div className="flex items-center space-x-1 border-r border-gray-200 pr-2 mr-1">
+                    <button onClick={() => editor.chain().focus().setTextAlign('left').run()} className={`p-1.5 rounded ${editor.isActive({ textAlign: 'left' }) ? 'bg-gray-200' : 'hover:bg-gray-100'}`}>Left</button>
+                    <button onClick={() => editor.chain().focus().setTextAlign('center').run()} className={`p-1.5 rounded ${editor.isActive({ textAlign: 'center' }) ? 'bg-gray-200' : 'hover:bg-gray-100'}`}>Center</button>
+                    <button onClick={() => editor.chain().focus().setTextAlign('right').run()} className={`p-1.5 rounded ${editor.isActive({ textAlign: 'right' }) ? 'bg-gray-200' : 'hover:bg-gray-100'}`}>Right</button>
+                </div>
+
+                {/* 5. Lists via emoji icons or text */}
+                <div className="flex items-center space-x-1 border-r border-gray-200 pr-2 mr-1">
+                    <button onClick={() => editor.chain().focus().toggleBulletList().run()} className={`p-1.5 rounded ${editor.isActive('bulletList') ? 'bg-gray-200' : 'hover:bg-gray-100'}`}>• List</button>
+                    <button onClick={() => editor.chain().focus().toggleOrderedList().run()} className={`p-1.5 rounded ${editor.isActive('orderedList') ? 'bg-gray-200' : 'hover:bg-gray-100'}`}>1. List</button>
+                    <button onClick={() => editor.chain().focus().toggleTaskList().run()} className={`p-1.5 rounded ${editor.isActive('taskList') ? 'bg-gray-200' : 'hover:bg-gray-100'}`}>Task</button>
+                </div>
+
+                {/* 6. Insert */}
+                <div className="flex items-center space-x-1 border-r border-gray-200 pr-2 mr-1">
+                    <button onClick={setLink} className={`p-1.5 rounded ${editor.isActive('link') ? 'bg-gray-200' : 'hover:bg-gray-100'}`}>Link</button>
+                    <button onClick={() => editor.chain().focus().toggleBlockquote().run()} className={`p-1.5 rounded ${editor.isActive('blockquote') ? 'bg-gray-200' : 'hover:bg-gray-100'}`}>""</button>
+                </div>
+
+                {/* 7. Export */}
+                <div className="flex items-center space-x-1 ml-auto">
+                    <button onClick={() => handleExport('txt')} className="px-2 py-1 bg-gray-50 rounded border hover:bg-gray-100 text-xs text-gray-700">TXT</button>
+                    <button onClick={() => handleExport('html')} className="px-2 py-1 bg-gray-50 rounded border hover:bg-gray-100 text-xs text-gray-700">HTML</button>
                 </div>
             </div>
 
-            <div className="flex-1 overflow-auto p-8 cursor-text" onClick={() => editor.chain().focus().run()}>
-                <EditorContent editor={editor} className="min-h-[500px] bg-white shadow-lg max-w-4xl mx-auto rounded-lg" />
+            <div className="flex-1 overflow-y-auto bg-gray-100 p-8" onClick={() => editor.chain().focus().run()}>
+                <div className="max-w-4xl mx-auto min-h-[800px] bg-white shadow-xl rounded-lg overflow-hidden">
+                    <EditorContent editor={editor} className="h-full p-8" />
+                </div>
             </div>
         </div>
     );
