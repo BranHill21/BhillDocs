@@ -74,28 +74,37 @@ export const DocumentList: React.FC = () => {
                 </form>
             )}
 
-            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 {docs.length === 0 ? (
-                    <p className="text-gray-500 col-span-3 text-center py-10">No public documents found. Create one!</p>
+                    <p className="text-gray-500 col-span-3 text-center py-10 text-lg">No active public documents found. Create one above!</p>
                 ) : (
                     docs.map(doc => (
-                        <div key={doc.id} className="bg-white p-4 rounded shadow hover:shadow-md transition border border-gray-100 flex flex-col justify-between h-40">
-                            <div>
-                                <h3 className="font-bold text-lg text-gray-800 mb-1">{doc.title || 'Untitled Document'}</h3>
-                                <p className="font-mono text-xs text-gray-500 break-all mb-2">ID: {doc.id.slice(0, 8)}...</p>
-                                <div className="flex items-center text-gray-700 space-x-2">
-                                    <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full flex items-center">
-                                        Active Users: {doc.userCount}
+                        <div key={doc.id} className="bg-white p-5 rounded-xl shadow-sm hover:shadow-lg transition-all duration-200 border border-gray-100 flex flex-col justify-between group">
+                            <div className="mb-4">
+                                <div className="flex justify-between items-start mb-2">
+                                    <h3 className="font-bold text-xl text-gray-800 leading-tight line-clamp-2" title={doc.title}>
+                                        {doc.title || 'Untitled Document'}
+                                    </h3>
+                                    <span className="flex items-center text-xs font-semibold bg-green-50 text-green-700 px-2 py-1 rounded-full border border-green-100 shrink-0 ml-2">
+                                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5 animate-pulse"></span>
+                                        {doc.userCount}
                                     </span>
                                 </div>
+                                <p className="font-mono text-xs text-gray-400 mb-3" title={doc.id}>
+                                    ID: <span className="bg-gray-50 px-1 py-0.5 rounded text-gray-500">{doc.id.slice(0, 8)}</span>
+                                </p>
                             </div>
-                            <div>
-                                <p className="text-xs text-gray-400 mb-3">Last updated: {new Date(doc.lastUpdated).toLocaleTimeString()}</p>
+
+                            <div className="pt-4 border-t border-gray-50">
+                                <div className="flex justify-between items-center mb-3">
+                                    <span className="text-xs text-gray-400">Updated {new Date(doc.lastUpdated).toLocaleTimeString()}</span>
+                                </div>
                                 <button
                                     onClick={() => navigate(`/doc/${doc.id}`)}
-                                    className="w-full bg-gray-100 text-blue-600 py-2 rounded hover:bg-gray-200 font-medium"
+                                    className="w-full bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white py-2.5 rounded-lg font-semibold transition-colors duration-200 flex items-center justify-center group-hover:shadow-md"
                                 >
                                     Join Document
+                                    <span className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">&rarr;</span>
                                 </button>
                             </div>
                         </div>
