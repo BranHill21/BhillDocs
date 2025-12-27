@@ -10,8 +10,8 @@ import {
     getPublicDocuments,
     documents,
     DocumentSession
-} from './documentRegistry';
-import { startCleanupJob } from './cleanup';
+} from './documentRegistry.js';
+import { startCleanupJob } from './cleanup.js';
 
 const app = express();
 const port = 3000;

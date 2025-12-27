@@ -1,4 +1,4 @@
-import { documents, deleteDocument } from './documentRegistry';
+import { documents, deleteDocument } from './documentRegistry.js';
 
 const CLEANUP_INTERVAL_MS = 60 * 1000; // Run every minute
 const MAX_IDLE_TIME_MS = 60 * 60 * 1000; // 1 hour

@@ -9,64 +9,24 @@ import { joinDocument } from '../api';
 
 const COLORS = ['#958DF1', '#F98181', '#FBBC88', '#FAF594', '#70CFF8', '#94FADB', '#B9F18D'];
 
-interface EditorProps {
-    documentId: string;
+interface TiptapEditorProps {
+    provider: WebsocketProvider;
     onLeave: () => void;
+    documentId: string;
 }
 
-export const Editor: React.FC<EditorProps> = ({ documentId, onLeave }) => {
+const TiptapEditor: React.FC<TiptapEditorProps> = ({ provider, onLeave, documentId }) => {
     const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
-    const [provider, setProvider] = useState<WebsocketProvider | null>(null);
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-    // Authenticate first
-    useEffect(() => {
-        // Check if public or needs password
-        joinDocument(documentId).then(success => {
-            if (success) {
-                setIsAuthenticated(true);
-            } else {
-                // Needs password
-                const pwd = prompt('Enter password for this document:');
-                if (pwd) {
-                    joinDocument(documentId, pwd).then(ok => {
-                        if (ok) setIsAuthenticated(true);
-                        else {
-                            alert('Incorrect password');
-                            onLeave();
-                        }
-                    }).catch(() => {
-                        alert('Error joining');
-                        onLeave();
-                    });
-                } else {
-                    onLeave();
-                }
-            }
-        }).catch(err => {
-            console.error(err);
-            alert('Document not found or error');
-            onLeave();
-        });
-    }, [documentId, onLeave]);
 
     useEffect(() => {
-        if (!isAuthenticated) return;
-
-        const ydoc = new Y.Doc();
-        const wsProvider = new WebsocketProvider('ws://localhost:3000', documentId, ydoc);
-
-        wsProvider.on('status', (event: any) => {
+        const updateStatus = (event: any) => {
             setStatus(event.status);
-        });
-
-        setProvider(wsProvider);
-
-        return () => {
-            wsProvider.destroy();
-            ydoc.destroy();
         };
-    }, [documentId, isAuthenticated]);
+        provider.on('status', updateStatus);
+        return () => {
+            provider.off('status', updateStatus);
+        };
+    }, [provider]);
 
     const editor = useEditor({
         extensions: [
@@ -74,7 +34,7 @@ export const Editor: React.FC<EditorProps> = ({ documentId, onLeave }) => {
                 history: false, // handled by Yjs
             }),
             Collaboration.configure({
-                document: provider?.doc,
+                document: provider.doc,
             }),
             CollaborationCursor.configure({
                 provider: provider,
@@ -89,7 +49,7 @@ export const Editor: React.FC<EditorProps> = ({ documentId, onLeave }) => {
                 class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none h-full p-4',
             },
         },
-    }, [provider]); // Re-create editor when provider is ready
+    });
 
     const handleExport = (format: 'txt' | 'html' | 'json') => {
         if (!editor) return;
@@ -118,12 +78,8 @@ export const Editor: React.FC<EditorProps> = ({ documentId, onLeave }) => {
         URL.revokeObjectURL(url);
     };
 
-    if (!isAuthenticated) {
-        return <div className="flex justify-center items-center h-screen">Loading...</div>;
-    }
-
-    if (!provider || !editor) {
-        return <div className="flex justify-center items-center h-screen">Connecting to editor...</div>;
+    if (!editor) {
+        return <div className="flex justify-center items-center h-screen">Loading editor...</div>;
     }
 
     return (
@@ -171,4 +127,74 @@ export const Editor: React.FC<EditorProps> = ({ documentId, onLeave }) => {
             </div>
         </div>
     );
+};
+
+interface EditorProps {
+    documentId: string;
+    onLeave: () => void;
+}
+
+export const Editor: React.FC<EditorProps> = ({ documentId, onLeave }) => {
+    const [provider, setProvider] = useState<WebsocketProvider | null>(null);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+    // Authenticate first
+    useEffect(() => {
+        let isMounted = true;
+        // Check if public or needs password
+        joinDocument(documentId).then(success => {
+            if (!isMounted) return;
+            if (success) {
+                setIsAuthenticated(true);
+            } else {
+                // Needs password
+                const pwd = prompt('Enter password for this document:');
+                if (pwd) {
+                    joinDocument(documentId, pwd).then(ok => {
+                        if (!isMounted) return;
+                        if (ok) setIsAuthenticated(true);
+                        else {
+                            alert('Incorrect password');
+                            onLeave();
+                        }
+                    }).catch(() => {
+                        alert('Error joining');
+                        onLeave();
+                    });
+                } else {
+                    onLeave();
+                }
+            }
+        }).catch(err => {
+            console.error(err);
+            alert('Document not found or error');
+            onLeave();
+        });
+        return () => { isMounted = false; };
+    }, [documentId, onLeave]);
+
+    // Connect to Yjs
+    useEffect(() => {
+        if (!isAuthenticated) return;
+
+        const ydoc = new Y.Doc();
+        const wsProvider = new WebsocketProvider('ws://localhost:3000', documentId, ydoc);
+
+        setProvider(wsProvider);
+
+        return () => {
+            wsProvider.destroy();
+            ydoc.destroy();
+        };
+    }, [documentId, isAuthenticated]);
+
+    if (!isAuthenticated) {
+        return <div className="flex justify-center items-center h-screen">Loading...</div>;
+    }
+
+    if (!provider) {
+        return <div className="flex justify-center items-center h-screen">Connecting to collaboration server...</div>;
+    }
+
+    return <TiptapEditor provider={provider} onLeave={onLeave} documentId={documentId} />;
 };
