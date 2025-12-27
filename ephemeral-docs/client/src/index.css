@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+/* Custom scrollbar if needed */
+body {
+    background-color: #f3f4f6;
+}
