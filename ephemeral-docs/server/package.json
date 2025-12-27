@@ -5,7 +5,7 @@
   "description": "",
   "main": "src/index.ts",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "npm run build && npm start",
     "build": "tsc",
     "start": "node dist/index.js"
   },
