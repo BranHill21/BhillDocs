@@ -81,7 +81,8 @@ export const DocumentList: React.FC = () => {
                     docs.map(doc => (
                         <div key={doc.id} className="bg-white p-4 rounded shadow hover:shadow-md transition border border-gray-100 flex flex-col justify-between h-40">
                             <div>
-                                <h3 className="font-mono text-sm text-gray-500 break-all mb-2">ID: {doc.id.slice(0, 8)}...</h3>
+                                <h3 className="font-bold text-lg text-gray-800 mb-1">{doc.title || 'Untitled Document'}</h3>
+                                <p className="font-mono text-xs text-gray-500 break-all mb-2">ID: {doc.id.slice(0, 8)}...</p>
                                 <div className="flex items-center text-gray-700 space-x-2">
                                     <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full flex items-center">
                                         Active Users: {doc.userCount}

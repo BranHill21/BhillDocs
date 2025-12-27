@@ -4,6 +4,7 @@ import * as Y from 'yjs';
 export interface DocumentSession {
     id: string;
     ydoc: Y.Doc;
+    title: string;
     isPublic: boolean;
     passwordHash?: string;
     lastUpdated: number;
@@ -29,11 +30,26 @@ export const createDocument = (
     const session: DocumentSession = {
         id,
         ydoc: doc,
+        title: 'Untitled Document',
         isPublic,
         passwordHash,
         lastUpdated: Date.now(),
         connections: new Set(),
     };
+
+    // Initialize title in Yjs
+    doc.getMap('meta').set('title', session.title);
+
+    // Watch for title changes from clients to update registry
+    doc.getMap('meta').observe((event) => {
+        if (event.keysChanged.has('title')) {
+            const newTitle = doc.getMap('meta').get('title') as string;
+            if (newTitle) {
+                session.title = newTitle;
+                session.lastUpdated = Date.now(); // Update timestamp on title change too
+            }
+        }
+    });
 
     // Register update handler for broadcasting
     doc.on('update', (update: Uint8Array, origin: any) => {
@@ -60,12 +76,13 @@ export const getDocument = (id: string): DocumentSession | undefined => {
 };
 
 export const getPublicDocuments = () => {
-    const publicDocs: { id: string; userCount: number; lastUpdated: number }[] = [];
+    const publicDocs: { id: string; title: string; userCount: number; lastUpdated: number }[] = [];
 
     documents.forEach((doc) => {
         if (doc.isPublic) {
             publicDocs.push({
                 id: doc.id,
+                title: doc.title,
                 userCount: doc.connections.size,
                 lastUpdated: doc.lastUpdated,
             });

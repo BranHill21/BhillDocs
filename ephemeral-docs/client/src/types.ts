@@ -1,5 +1,6 @@
 export interface DocumentMetadata {
     id: string;
+    title: string;
     userCount: number;
     lastUpdated: number;
 }

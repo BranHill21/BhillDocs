@@ -12,11 +12,24 @@ export const createDocument = (id, isPublic = true, passwordHash) => {
     const session = {
         id,
         ydoc: doc,
+        title: 'Untitled Document',
         isPublic,
         passwordHash,
         lastUpdated: Date.now(),
         connections: new Set(),
     };
+    // Initialize title in Yjs
+    doc.getMap('meta').set('title', session.title);
+    // Watch for title changes from clients to update registry
+    doc.getMap('meta').observe((event) => {
+        if (event.keysChanged.has('title')) {
+            const newTitle = doc.getMap('meta').get('title');
+            if (newTitle) {
+                session.title = newTitle;
+                session.lastUpdated = Date.now(); // Update timestamp on title change too
+            }
+        }
+    });
     // Register update handler for broadcasting
     doc.on('update', (update, origin) => {
         session.lastUpdated = Date.now();
@@ -42,6 +55,7 @@ export const getPublicDocuments = () => {
         if (doc.isPublic) {
             publicDocs.push({
                 id: doc.id,
+                title: doc.title,
                 userCount: doc.connections.size,
                 lastUpdated: doc.lastUpdated,
             });
