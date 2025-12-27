@@ -16,6 +16,7 @@ import FontFamily from '@tiptap/extension-font-family';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { joinDocument } from '../api';
+import html2pdf from 'html2pdf.js';
 
 const COLORS = ['#958DF1', '#F98181', '#FBBC88', '#FAF594', '#70CFF8', '#94FADB', '#B9F18D'];
 
@@ -122,8 +123,32 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({ provider, documentId, fileN
         },
     });
 
-    const handleExport = (format: 'txt' | 'html' | 'json') => {
+
+
+    // ... imports remain the same
+
+    // ... inside component
+
+    const handleExport = (format: 'txt' | 'html' | 'json' | 'pdf') => {
         if (!editor) return;
+
+        if (format === 'pdf') {
+            const element = document.querySelector('.ProseMirror');
+            if (!element) return;
+
+            const opt = {
+                margin: 10,
+                filename: `${fileName || documentId}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            // @ts-ignore
+            html2pdf().set(opt).from(element).save();
+            return;
+        }
+
         let content = '';
         let mime = 'text/plain';
         let ext = 'txt';
@@ -237,6 +262,7 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({ provider, documentId, fileN
                 <div className="flex items-center space-x-1 ml-auto">
                     <button onClick={() => handleExport('txt')} className="px-2 py-1 bg-gray-50 rounded border hover:bg-gray-100 text-xs text-gray-700">TXT</button>
                     <button onClick={() => handleExport('html')} className="px-2 py-1 bg-gray-50 rounded border hover:bg-gray-100 text-xs text-gray-700">HTML</button>
+                    <button onClick={() => handleExport('pdf')} className="px-2 py-1 bg-gray-50 rounded border hover:bg-gray-100 text-xs text-gray-700">PDF</button>
                 </div>
             </div>
 
