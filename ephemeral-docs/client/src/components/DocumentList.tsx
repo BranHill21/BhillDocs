@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { fetchDocuments, createDocument } from '../api';
 import type { DocumentMetadata } from '../types';
 
-interface DocumentListProps {
-    onJoin: (id: string) => void;
-}
-
-export const DocumentList: React.FC<DocumentListProps> = ({ onJoin }) => {
+export const DocumentList: React.FC = () => {
+    const navigate = useNavigate();
     const [docs, setDocs] = useState<DocumentMetadata[]>([]);
     const [isCreating, setIsCreating] = useState(false);
     const [isPrivate, setIsPrivate] = useState(false);
@@ -25,7 +23,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({ onJoin }) => {
         e.preventDefault();
         try {
             const { id } = await createDocument(!isPrivate, password);
-            onJoin(id);
+            navigate(`/doc/${id}`);
         } catch (err) {
             console.error(err);
             alert('Failed to create document');
@@ -93,7 +91,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({ onJoin }) => {
                             <div>
                                 <p className="text-xs text-gray-400 mb-3">Last updated: {new Date(doc.lastUpdated).toLocaleTimeString()}</p>
                                 <button
-                                    onClick={() => onJoin(doc.id)}
+                                    onClick={() => navigate(`/doc/${doc.id}`)}
                                     className="w-full bg-gray-100 text-blue-600 py-2 rounded hover:bg-gray-200 font-medium"
                                 >
                                     Join Document

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Collaboration from '@tiptap/extension-collaboration';
@@ -129,17 +130,29 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({ provider, onLeave, document
     );
 };
 
-interface EditorProps {
-    documentId: string;
-    onLeave: () => void;
+interface EditorRouteParams extends Record<string, string> {
+    id: string;
 }
 
-export const Editor: React.FC<EditorProps> = ({ documentId, onLeave }) => {
+export const Editor: React.FC = () => {
+    const { id } = useParams<EditorRouteParams>();
+    const navigate = useNavigate();
     const [provider, setProvider] = useState<WebsocketProvider | null>(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+    // If no ID is present, go back home
+    useEffect(() => {
+        if (!id) {
+            navigate('/');
+        }
+    }, [id, navigate]);
+
+    const documentId = id || '';
+
     // Authenticate first
     useEffect(() => {
+        if (!documentId) return;
+
         let isMounted = true;
         // Check if public or needs password
         joinDocument(documentId).then(success => {
@@ -155,27 +168,27 @@ export const Editor: React.FC<EditorProps> = ({ documentId, onLeave }) => {
                         if (ok) setIsAuthenticated(true);
                         else {
                             alert('Incorrect password');
-                            onLeave();
+                            navigate('/');
                         }
                     }).catch(() => {
                         alert('Error joining');
-                        onLeave();
+                        navigate('/');
                     });
                 } else {
-                    onLeave();
+                    navigate('/');
                 }
             }
         }).catch(err => {
             console.error(err);
             alert('Document not found or error');
-            onLeave();
+            navigate('/');
         });
         return () => { isMounted = false; };
-    }, [documentId, onLeave]);
+    }, [documentId, navigate]);
 
     // Connect to Yjs
     useEffect(() => {
-        if (!isAuthenticated) return;
+        if (!isAuthenticated || !documentId) return;
 
         const ydoc = new Y.Doc();
         const wsProvider = new WebsocketProvider('ws://localhost:3000', documentId, ydoc);
@@ -188,6 +201,8 @@ export const Editor: React.FC<EditorProps> = ({ documentId, onLeave }) => {
         };
     }, [documentId, isAuthenticated]);
 
+    if (!documentId) return null;
+
     if (!isAuthenticated) {
         return <div className="flex justify-center items-center h-screen">Loading...</div>;
     }
@@ -196,5 +211,5 @@ export const Editor: React.FC<EditorProps> = ({ documentId, onLeave }) => {
         return <div className="flex justify-center items-center h-screen">Connecting to collaboration server...</div>;
     }
 
-    return <TiptapEditor provider={provider} onLeave={onLeave} documentId={documentId} />;
+    return <TiptapEditor provider={provider} onLeave={() => navigate('/')} documentId={documentId} />;
 };
