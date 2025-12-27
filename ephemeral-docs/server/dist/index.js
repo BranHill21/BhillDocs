@@ -4,6 +4,8 @@ import { WebSocketServer, WebSocket } from 'ws';
 import * as Y from 'yjs';
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcrypt';
+import * as decoding from 'lib0/decoding';
+import * as encoding from 'lib0/encoding';
 import { createDocument, getDocument, getPublicDocuments } from './documentRegistry.js';
 import { startCleanupJob } from './cleanup.js';
 const app = express();
@@ -89,40 +91,38 @@ const setupWS = (ws, req) => {
         try {
             // message is Buffer (in ws)
             const buffer = new Uint8Array(message);
+            const decoder = decoding.createDecoder(buffer);
+            const messageType = decoding.readVarUint(decoder);
             // Minimal implementation of y-protocol
             // https://github.com/yjs/y-websocket/blob/master/path/to/protocol.js
-            const messageType = buffer[0];
             if (messageType === 0) { // Sync
-                const messageTypeStep = buffer[1];
+                const messageTypeStep = decoding.readVarUint(decoder);
                 if (messageTypeStep === 0) { // SyncStep1: Client requests sync
                     // Client sends their StateVector
-                    const encodedSV = buffer.slice(2);
+                    const encodedSV = decoding.readVarUint8Array(decoder);
                     // Server responds with SyncStep2: Diff(ClientSV, ServerDoc)
                     const update = Y.encodeStateAsUpdate(session.ydoc, encodedSV);
-                    const reply = new Uint8Array(update.length + 2);
-                    reply[0] = 0; // Sync
-                    reply[1] = 1; // SyncStep2
-                    reply.set(update, 2);
-                    send(ws, reply);
+                    const replyEncoder = encoding.createEncoder();
+                    encoding.writeVarUint(replyEncoder, 0); // Sync
+                    encoding.writeVarUint(replyEncoder, 1); // SyncStep2
+                    encoding.writeVarUint8Array(replyEncoder, update);
+                    send(ws, encoding.toUint8Array(replyEncoder));
                 }
                 else if (messageTypeStep === 1 || messageTypeStep === 2) { // SyncStep2 or Update from client
-                    const update = buffer.slice(2);
+                    const update = decoding.readVarUint8Array(decoder);
                     // Apply update to server doc. 
-                    // This triggers 'update' event in registry, broadcasting to OTHERs.
-                    // We pass 'ws' as origin to avoid echoing back to sender (echoing is handled by registry check)
                     Y.applyUpdate(session.ydoc, update, ws);
                 }
             }
             else if (messageType === 1) { // Awareness
                 // Broadcast awareness to others transparently
-                // Awareness messages are just forwarded to everyone else
-                const awarenessUpdate = buffer.slice(1);
+                const awarenessUpdate = decoding.readVarUint8Array(decoder);
                 session.connections.forEach(c => {
                     if (c !== ws) {
-                        const reply = new Uint8Array(awarenessUpdate.length + 1);
-                        reply[0] = 1; // Awareness
-                        reply.set(awarenessUpdate, 1);
-                        send(c, reply);
+                        const replyEncoder = encoding.createEncoder();
+                        encoding.writeVarUint(replyEncoder, 1); // Awareness
+                        encoding.writeVarUint8Array(replyEncoder, awarenessUpdate);
+                        send(c, encoding.toUint8Array(replyEncoder));
                     }
                 });
             }
