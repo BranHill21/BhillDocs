@@ -1,4 +1,4 @@
-# ✨ Ephemeral Docs
+# Ephemeral Docs
 
 **The Open-Source, Real-Time Collaboration Suite that Forgets.**
 
@@ -17,7 +17,7 @@ All data exists purely in the server's volatile memory. Once a document is aband
 
 ## Key Features
 
-### ⚡ Real-Time Collaboration
+### Real-Time Collaboration
 *   **Instant Sync**: Powered by **Yjs** CRDTs and **WebSockets**, changes appear instantly on all connected devices.
 *   **Live Presence**: See who's online with **pulsing user indicators** and **collaborative cursors** that show exactly where others are typing.
 *   **Conflict-Free**: Type over each other without fear. The mathematical magic of CRDTs ensures everyone always sees the same final state.
